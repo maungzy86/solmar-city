@@ -1,0 +1,92 @@
+/* Solmar City — sun-soaked coastal theme: warm sand, sea teal, late-day gold. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0e2a33; }
+body { font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif; color: #fff7ea; }
+.hidden { display: none !important; }
+
+#wrap { position: fixed; inset: 0; }
+#gl { position: absolute; inset: 0; }
+#gl canvas { display: block; width: 100%; height: 100%; }
+
+/* ---------- HUD ---------- */
+#hud { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+#hud-top-left { position: absolute; top: 16px; left: 16px; }
+#health-wrap {
+  width: 210px; height: 14px; border: 2px solid rgba(255,247,234,.85);
+  border-radius: 7px; background: rgba(10, 26, 32, .55); overflow: hidden;
+}
+#health-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff9d5c, #ffd166); transition: width .18s ease; }
+#cash { margin-top: 7px; font-size: 26px; font-weight: 800; letter-spacing: .5px; color: #aef3c1; text-shadow: 0 2px 6px rgba(0,0,0,.55); }
+#clock { margin-top: 2px; font-size: 13px; font-weight: 600; color: #ffe9c4; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+
+#hud-top-right { position: absolute; top: 16px; right: 16px; text-align: right; }
+#wanted { font-size: 30px; letter-spacing: 4px; line-height: 1; }
+#wanted .star-on { color: #ffd23f; text-shadow: 0 0 10px rgba(255, 190, 40, .8), 0 2px 4px rgba(0,0,0,.6); }
+#wanted .star-off { color: rgba(255,255,255,.28); text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+#speed { margin-top: 6px; font-size: 22px; font-weight: 800; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+
+#objective {
+  position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+  max-width: 560px; padding: 9px 18px; border-radius: 10px;
+  background: rgba(10, 26, 32, .62); border: 1px solid rgba(255, 209, 102, .65);
+  font-size: 16px; font-weight: 700; color: #ffe9c4; text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,.7);
+}
+#objective .obj-sub { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 600; color: #bfe8ef; }
+
+#minimap-frame {
+  position: absolute; left: 16px; bottom: 16px; width: 188px; height: 188px;
+  border: 3px solid rgba(255,247,234,.85); border-radius: 12px; overflow: hidden;
+  background: rgba(10, 26, 32, .7); box-shadow: 0 6px 18px rgba(0,0,0,.45);
+}
+#minimap { width: 182px; height: 182px; display: block; }
+
+#bust-wrap {
+  position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%);
+  width: 260px; text-align: center; font-weight: 800; letter-spacing: 2px; color: #ff8f8f;
+}
+#bust-wrap > div { height: 10px; border: 2px solid rgba(255,255,255,.8); border-radius: 5px; overflow: hidden; background: rgba(0,0,0,.5); margin-bottom: 5px; }
+#bust-bar { height: 100%; width: 0%; background: #ef476f; }
+
+#crosshair {
+  position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border: 2px solid rgba(255,255,255,.9); border-radius: 50%; box-shadow: 0 0 6px rgba(0,0,0,.7);
+}
+
+#vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(190, 20, 40, .55) 100%); transition: opacity .12s ease; }
+
+/* ---------- Toast ---------- */
+#toast {
+  position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%) translateY(8px);
+  z-index: 8; max-width: 620px; padding: 10px 20px; border-radius: 10px;
+  background: rgba(10, 26, 32, .78); border: 1px solid rgba(255,247,234,.35);
+  font-size: 16px; font-weight: 600; text-align: center; color: #fff7ea;
+  opacity: 0; transition: opacity .25s ease, transform .25s ease; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- Screens ---------- */
+.screen {
+  position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(9, 30, 40, .25) 0%, rgba(9, 30, 40, .55) 100%);
+}
+.title-card { text-align: center; padding: 34px 44px; border-radius: 18px; background: rgba(8, 24, 31, .55); border: 1px solid rgba(255, 233, 196, .35); backdrop-filter: blur(3px); max-width: 640px; }
+.title-kicker { font-size: 13px; font-weight: 800; letter-spacing: 4px; color: #ffd166; }
+.title-card h1 {
+  margin: 8px 0 6px; font-size: 64px; font-weight: 900; letter-spacing: 2px; line-height: 1;
+  color: #fff3d6; text-shadow: 0 4px 0 #e07a3f, 0 10px 26px rgba(0,0,0,.55);
+}
+.title-card h1.small { font-size: 42px; }
+.title-card h1.busted { color: #ffb3b3; text-shadow: 0 4px 0 #8f2438, 0 10px 26px rgba(0,0,0,.55); }
+.title-sub { font-size: 16.5px; line-height: 1.45; color: #dff3f5; }
+.title-buttons { margin: 22px 0 14px; display: flex; gap: 14px; justify-content: center; }
+.big-btn {
+  pointer-events: auto; cursor: pointer; border: none; border-radius: 12px;
+  padding: 13px 30px; font-size: 18px; font-weight: 800; letter-spacing: .4px;
+  color: #20303a; background: linear-gradient(180deg, #ffd166, #f4a950);
+  box-shadow: 0 5px 0 #b96f2e, 0 10px 20px rgba(0,0,0,.4);
+}
+.big-btn:hover { filter: brightness(1.07); }
+.big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b96f2e; }
+.big-btn.secondary { background: linear-gradient(180deg, #bfe8ef, #7fc8bc); box-shadow: 0 5px 0 #4d8a80, 0 10px 20px rgba(0,0,0,.4); }
+.title-controls { font-size: 12.5px; color: rgba(255, 247, 234, .75); }

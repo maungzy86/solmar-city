@@ -1,19 +1,71 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-</style>
+<title>Solmar City</title>
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">
+{"imports": {"three": "./vendor/three.module.min.js"}}
+</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
+<div id="wrap">
+  <div id="gl"></div>
+
+  <div id="hud" class="hidden">
+    <div id="hud-top-left">
+      <div id="health-wrap"><div id="health-bar"></div></div>
+      <div id="cash">$0</div>
+      <div id="clock">Solmar Bay · 17:40</div>
+    </div>
+    <div id="hud-top-right">
+      <div id="wanted" title="Wanted level"></div>
+      <div id="speed" class="hidden">0 km/h</div>
+    </div>
+    <div id="objective" class="hidden"></div>
+    <div id="minimap-frame"><canvas id="minimap" width="180" height="180"></canvas></div>
+    <div id="bust-wrap" class="hidden"><div id="bust-bar"></div><span>BUSTED…</span></div>
+    <div id="crosshair" class="hidden"></div>
+    <div id="vignette"></div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <div id="screen-title" class="screen">
+    <div class="title-card">
+      <div class="title-kicker">SOLMAR BAY · EST. SUNSHINE</div>
+      <h1>SOLMAR CITY</h1>
+      <p class="title-sub">Milo Reyes drives. Carmen Solis calls the jobs.<br>The Vane Syndicate owns the far side of the canal.</p>
+      <div class="title-buttons">
+        <button id="btn-new" class="big-btn">New Game</button>
+        <button id="btn-continue" class="big-btn secondary hidden">Continue</button>
+      </div>
+      <p class="title-controls">WASD move · Shift run · E enter car · F punch · Space handbrake · mouse drag camera · M mute</p>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="screen hidden">
+    <div class="title-card">
+      <h1 class="small">Paused</h1>
+      <p class="title-sub" id="pause-stats"></p>
+      <div class="title-buttons">
+        <button id="btn-resume" class="big-btn">Resume</button>
+        <button id="btn-restart" class="big-btn secondary">Restart day</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-busted" class="screen hidden">
+    <div class="title-card">
+      <h1 class="small busted">BUSTED</h1>
+      <p class="title-sub" id="busted-text">The Solmar Bay PD took a cut of your cash.</p>
+      <div class="title-buttons">
+        <button id="btn-busted-ok" class="big-btn">Walk out</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
