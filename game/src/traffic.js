@@ -6,12 +6,15 @@
 import { CONFIG, roadLines, canalZ } from './config.js';
 import { createCarMesh } from './vehicles.js';
 
-const MODELS = ['brisa', 'tortuga', 'faro', 'taxi', 'cometa'];
+// Ambient traffic skews toward everyday cars: a uniform pick made the
+// cometa sports car and the taxi as common as the family brisa, which
+// read wrong on the street. Weights are relative, not percentages.
+const MODEL_WEIGHTS = [['brisa', 4], ['faro', 3], ['tortuga', 2], ['taxi', 2], ['cometa', 1]];
 const PAINTS = [0xe2483d, 0x3d7be2, 0xf2b134, 0x53a05a, 0xd8d3c3, 0x8a6fc9, 0xf28c28];
 
 class TrafficCar {
   constructor(scene, rng, lines) {
-    this.model = MODELS[rng.int(0, MODELS.length - 1)];
+    this.model = rng.weightedPick(MODEL_WEIGHTS);
     const built = createCarMesh(this.model, PAINTS[rng.int(0, PAINTS.length - 1)]);
     this.mesh = built.group;
     this.headLamps = built.headLamps;

@@ -21,7 +21,21 @@ export class InputTracker {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
-    window.addEventListener('blur', () => this.down.clear());
+    // Losing focus mid-input must not leave anything stuck: a keyup or
+    // mouseup that lands in another window is never delivered here, so
+    // without this the game would keep walking/driving on held keys and
+    // the camera would keep orbiting on a phantom drag. Clear the whole
+    // tracker — held keys, queued presses, mouse buttons and any drag
+    // delta accumulated but not yet consumed.
+    window.addEventListener('blur', () => {
+      this.down.clear();
+      this.pressed.clear();
+      this.mouseDown = false;
+      this.dragging = false;
+      this.clicked = false;
+      this.mouseDX = 0;
+      this.mouseDY = 0;
+    });
 
     const el = element || window;
     el.addEventListener('mousedown', (e) => {

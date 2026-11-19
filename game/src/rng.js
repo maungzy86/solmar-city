@@ -15,6 +15,23 @@ export function createRng(seed) {
     range(a, b) { return a + (b - a) * next(); },
     int(a, b) { return Math.floor(a + next() * (b - a + 1)); },
     pick(arr) { return arr[Math.floor(next() * arr.length)]; },
+    // Pick from [value, weight] pairs with probability proportional to
+    // weight: for mixes a uniform pick cannot express, like ambient
+    // traffic that should mostly be everyday cars with the odd sports
+    // car. Non-positive weights never win; an empty or all-zero list
+    // yields undefined rather than throwing.
+    weightedPick(pairs) {
+      let total = 0;
+      for (const [, weight] of pairs) if (weight > 0) total += weight;
+      if (total <= 0) return undefined;
+      let roll = next() * total;
+      for (const [value, weight] of pairs) {
+        if (weight <= 0) continue;
+        roll -= weight;
+        if (roll < 0) return value;
+      }
+      return pairs[pairs.length - 1][0];
+    },
     chance(p) { return next() < p; },
   };
 }

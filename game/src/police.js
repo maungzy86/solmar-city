@@ -70,16 +70,31 @@ export class PoliceManager {
   }
 
   spawnCop(playerPos) {
-    // Appear at a road intersection a good distance from the player.
-    let best = null;
-    let bestScore = -1;
-    for (const x of this.lines) {
-      for (const z of this.lines) {
-        const d = Math.hypot(x - playerPos.x, z - playerPos.z);
-        const score = -Math.abs(d - 95) + Math.random() * 12;
-        if (d > 55 && score > bestScore) { bestScore = score; best = { x, z }; }
+    // Appear at a road intersection a good distance from the player, and
+    // not on top of a unit that is already out: two interceptors spawning
+    // on the same intersection stack into one blob, collide with each
+    // other and arrive as a single car. Candidates closer than MIN_SEP
+    // to a live cop are skipped; only when no separated intersection
+    // qualifies at all does the search fall back to the unfiltered one,
+    // so a spawn is never refused outright.
+    const MIN_SEP = 26;
+    const separated = (x, z) => this.cops.every(
+      (c) => Math.hypot(c.pos.x - x, c.pos.z - z) >= MIN_SEP,
+    );
+    const search = (respectSeparation) => {
+      let best = null;
+      let bestScore = -1;
+      for (const x of this.lines) {
+        for (const z of this.lines) {
+          if (respectSeparation && !separated(x, z)) continue;
+          const d = Math.hypot(x - playerPos.x, z - playerPos.z);
+          const score = -Math.abs(d - 95) + Math.random() * 12;
+          if (d > 55 && score > bestScore) { bestScore = score; best = { x, z }; }
+        }
       }
-    }
+      return best;
+    };
+    let best = search(true) ?? search(false);
     if (!best) best = { x: 216, z: 216 };
     const cop = new Vehicle(this.scene, 'police', best.x, best.z, Math.random() * Math.PI * 2);
     cop.navRoute = [];

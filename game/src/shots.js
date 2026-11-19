@@ -1,7 +1,22 @@
 // Screenshot modes, chosen with ?shot=title|drive|chase|mission&seed=N.
 // Each arranges the game into a real, playable state that shows off a
-// different side of Solmar City, then main.js flags window.__shotReady once
-// a few frames have rendered with the HUD laid out.
+// different side of Solmar City, then main.js flags window.__shotReady
+// once shotIsReady (below) says the capture may proceed.
+
+// The old gate was a bare frame count — "more than 6 frames since boot" —
+// which a fast machine burns through in well under a tenth of a second,
+// before shadow maps, canvas textures and the HUD have necessarily
+// settled, and which said nothing about wall-clock time at all. A capture
+// is only ready once BOTH a minimum number of frames have actually been
+// rendered AND a minimum settle time has elapsed since boot; main.js
+// checks this immediately after a render, so the flag always follows a
+// fully rendered frame.
+export const SHOT_MIN_FRAMES = 15;
+export const SHOT_MIN_MS = 1000;
+
+export function shotIsReady(framesRendered, msSinceBoot) {
+  return framesRendered >= SHOT_MIN_FRAMES && msSinceBoot >= SHOT_MIN_MS;
+}
 
 export function applyShotMode(params, game) {
   const mode = params.get('shot');

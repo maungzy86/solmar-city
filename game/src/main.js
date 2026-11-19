@@ -22,7 +22,7 @@ import { ChaseCamera } from './camera.js';
 import { Hud } from './hud.js';
 import { drawMinimap } from './minimap.js';
 import { saveGame, loadGame, clearSave } from './save.js';
-import { applyShotMode } from './shots.js';
+import { applyShotMode, shotIsReady } from './shots.js';
 
 const params = new URLSearchParams(window.location.search);
 const seedParam = Number.parseInt(params.get('seed') || '', 10);
@@ -505,6 +505,7 @@ hud.setClock(daynight.clockLabel());
 if (!shotActive) hud.showScreen('screen-title');
 
 const clock = new THREE.Clock();
+const bootStamp = performance.now();
 let framesSinceBoot = 0;
 function loop() {
   requestAnimationFrame(loop);
@@ -523,6 +524,10 @@ function loop() {
   renderer.render(scene, camera3d);
   input.endFrame();
   framesSinceBoot++;
-  if (shotActive && framesSinceBoot > 6 && !window.__shotReady) window.__shotReady = true;
+  // Flag readiness only after this frame has rendered and shots.js's
+  // frame-count + settle-time gate has passed (see shotIsReady).
+  if (shotActive && !window.__shotReady && shotIsReady(framesSinceBoot, performance.now() - bootStamp)) {
+    window.__shotReady = true;
+  }
 }
 loop();
