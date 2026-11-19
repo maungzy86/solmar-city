@@ -21,6 +21,9 @@ export const CONFIG = {
   playerHealth: 100,
   punchRange: 2.4,
   punchCooldown: 0.38,
+  shoveRange: 2.9,
+  shoveCooldown: 0.65,
+  comboWindow: 2.6,       // seconds between hits for the combo to keep counting
 
   // Cars (arcade handling). Speeds are units/second; multiply by 3.6 for km/h.
   car: {
@@ -55,8 +58,36 @@ export const CONFIG = {
     hitCar: 7,
     hitPed: 16,
     punchPed: 12,
+    shovePed: 14,
     stealCar: 6,
     ramPolice: 18,
+  },
+
+  // Street race: a checkpoint time trial that starts on the beachfront
+  // avenue. Checkpoints sit on road intersections (the canal is crossed on
+  // the x=-216 bridge). Payout = base + per-second bonus under target.
+  race: {
+    start: { x: 216, z: 288 },
+    checkpoints: [
+      { x: 72, z: 288 }, { x: -144, z: 288 }, { x: -216, z: 144 },
+      { x: -216, z: -72 }, { x: -72, z: -216 }, { x: 144, z: -216 },
+      { x: 216, z: -72 }, { x: 216, z: 144 },
+    ],
+    targetTime: 95,       // seconds; beat it for the time bonus
+    hardLimit: 170,       // seconds; past this the run is void
+    basePay: 150,
+    bonusPerSec: 5,
+    slowPay: 60,          // finishing over target still pays this
+    startRadius: 7,
+    checkpointRadius: 9,
+    countdown: 3,
+  },
+
+  // Day/night cycle: one full in-game day lasts cycleSeconds of real time.
+  // The day starts at startHour (17:40, matching the old static label).
+  day: {
+    cycleSeconds: 300,
+    startHour: 17 + 40 / 60,
   },
 
   // Police response.
@@ -85,6 +116,7 @@ export const CONFIG = {
     { id: 'fare', title: 'First Fare', giver: 'Carmen Solis', reward: 150 },
     { id: 'package', title: 'Hot Package', giver: 'Carmen Solis', reward: 220 },
     { id: 'hustle', title: 'Harbor Hustle', giver: 'Carmen Solis', reward: 300 },
+    { id: 'cooloff', title: 'Cool-Off Run', giver: 'Carmen Solis', reward: 340 },
   ],
 };
 

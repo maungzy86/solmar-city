@@ -85,7 +85,8 @@ export function buildCity(scene, rng) {
   sun.shadow.camera.top = 320; sun.shadow.camera.bottom = -320;
   sun.shadow.camera.far = 700;
   scene.add(sun);
-  scene.add(new THREE.HemisphereLight(0xbfe3f2, 0x8a6f4d, 0.95));
+  const hemi = new THREE.HemisphereLight(0xbfe3f2, 0x8a6f4d, 0.95);
+  scene.add(hemi);
 
   // --- ground, roads, beach, ocean --------------------------------------
   const ground = new THREE.Mesh(
@@ -174,7 +175,15 @@ export function buildCity(scene, rng) {
   }
 
   // --- blocks: sidewalks, buildings, plaza -------------------------------
-  const facades = FACADE_COLORS.map((col, i) => new THREE.MeshLambertMaterial({ map: facadeTexture(rng, col, 6 + i, 0.35) }));
+  // Facade materials carry their own texture as an emissive map, so the
+  // day/night cycle can make lit windows glow after dark by raising
+  // emissiveIntensity (the texture's bright windows emit the most).
+  const facades = FACADE_COLORS.map((col, i) => {
+    const tex = facadeTexture(rng, col, 6 + i, 0.35);
+    return new THREE.MeshLambertMaterial({
+      map: tex, emissive: new THREE.Color(0xffc98a), emissiveMap: tex, emissiveIntensity: 0,
+    });
+  });
   const roofMat = new THREE.MeshLambertMaterial({ color: 0x6e5a49 });
   const walkMat = new THREE.MeshLambertMaterial({ color: C.colors.sidewalk });
   const plazaMat = new THREE.MeshLambertMaterial({ color: C.colors.plaza });
@@ -276,14 +285,31 @@ export function buildCity(scene, rng) {
   for (const x of lines) for (const z of lines) if ((Math.round(x + z) / 72) % 2 === 0) lampSpots.push([x + 7.5, z + 7.5]);
   const poles = new THREE.InstancedMesh(poleGeo, poleMat, lampSpots.length);
   const heads = new THREE.InstancedMesh(headGeo, headMat, lampSpots.length);
+  // A larger, additive glow shell around each lamp head — invisible by day,
+  // the day/night cycle fades it in after dark.
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xffd9a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const glows = new THREE.InstancedMesh(new THREE.SphereGeometry(1.25, 8, 6), glowMat, lampSpots.length);
   lampSpots.forEach(([x, z], idx) => {
     m4.makeTranslation(x, 3.2, z);
     poles.setMatrixAt(idx, m4);
     m4.makeTranslation(x, 6.5, z);
     heads.setMatrixAt(idx, m4);
+    glows.setMatrixAt(idx, m4);
   });
   scene.add(poles);
   scene.add(heads);
+  scene.add(glows);
+  // A handful of real point lights at key junctions so lamplight actually
+  // pools on the road at night (intensity driven by the day/night cycle).
+  const lampLights = [];
+  for (const [lx, lz] of [[-72, -72], [72, 72], [0, 216], [-216, 72], [216, -216], [-144, -288 + 72]]) {
+    const pl = new THREE.PointLight(0xffc98a, 0, 30, 1.8);
+    pl.position.set(lx, 6.4, lz);
+    scene.add(pl);
+    lampLights.push(pl);
+  }
 
   // --- pier and marina ----------------------------------------------------
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x8a6a48 });
@@ -326,6 +352,13 @@ export function buildCity(scene, rng) {
     roads: lines,
     spawnPoints: { player: { x: 12, z: 62 }, cars: carSpawns },
     bounds: { minX: -300, maxX: 300, minZ: -300, maxZ: 322 },
+    // Lighting handles for the day/night cycle (daynight.js).
+    sun,
+    hemi,
+    facadeMats: facades,
+    lampLights,
+    lampGlowMat: glowMat,
+    seaMat,
   };
 }
 

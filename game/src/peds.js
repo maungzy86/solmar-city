@@ -44,9 +44,11 @@ export class Pedestrian {
     scene.add(this.group);
     this.heading = rng.range(0, Math.PI * 2);
     this.target = null;
-    this.state = 'walk'; // walk | flee | down
+    this.state = 'walk'; // walk | flee | down | stumble
     this.stateTimer = 0;
     this.phase = rng.range(0, 6);
+    this.hitsTaken = 0;      // punches absorbed before the next fall
+    this.slide = { x: 0, z: 0 }; // knockback velocity from a shove
     this.pickTarget();
   }
 
@@ -62,7 +64,7 @@ export class Pedestrian {
   }
 
   scare(fromPos, seconds = 3) {
-    if (this.state === 'down') return;
+    if (this.state === 'down' || this.state === 'stumble') return;
     this.state = 'flee';
     this.stateTimer = seconds;
     this.fleeFrom = { x: fromPos.x, z: fromPos.z };
@@ -71,12 +73,52 @@ export class Pedestrian {
   knockDown() {
     this.state = 'down';
     this.stateTimer = 4;
+    this.hitsTaken = 0;
     this.group.rotation.x = -Math.PI / 2;
+    this.group.rotation.z = 0;
     this.group.position.y = 0.25;
+  }
+
+  // A punch that connects: the first one staggers the pedestrian (they
+  // wobble, then run), a second one while staggered puts them down.
+  // Returns 'stumble' or 'down' so the caller can score the hit.
+  stumble(fromPos) {
+    if (this.state === 'down') return 'down';
+    this.hitsTaken++;
+    if (this.state === 'stumble' || this.hitsTaken >= 2) {
+      this.knockDown();
+      return 'down';
+    }
+    this.state = 'stumble';
+    this.stateTimer = 0.85;
+    this.fleeFrom = { x: fromPos.x, z: fromPos.z };
+    return 'stumble';
+  }
+
+  // A two-handed shove: down immediately, with a knockback slide away
+  // from whoever pushed. Non-graphic — they sit up and run off after.
+  shove(fromPos) {
+    const dx = this.pos.x - fromPos.x;
+    const dz = this.pos.z - fromPos.z;
+    const len = Math.hypot(dx, dz) || 1;
+    this.slide.x = (dx / len) * 7.5;
+    this.slide.z = (dz / len) * 7.5;
+    this.knockDown();
+    return 'down';
   }
 
   update(dt, world, threats) {
     this.stateTimer -= dt;
+    // Knockback slide (from a shove) applies in every state and decays.
+    if (this.slide.x !== 0 || this.slide.z !== 0) {
+      this.pos.x += this.slide.x * dt;
+      this.pos.z += this.slide.z * dt;
+      const decay = Math.max(0, 1 - dt * 5);
+      this.slide.x *= decay;
+      this.slide.z *= decay;
+      if (Math.abs(this.slide.x) < 0.05 && Math.abs(this.slide.z) < 0.05) { this.slide.x = 0; this.slide.z = 0; }
+      resolveCollisions(this.pos, 0.4, world.colliders);
+    }
     if (this.state === 'down') {
       if (this.stateTimer <= 0) {
         this.state = 'flee';
@@ -84,6 +126,17 @@ export class Pedestrian {
         this.fleeFrom = { x: this.pos.x + 5, z: this.pos.z };
         this.group.rotation.x = 0;
         this.group.position.y = 0;
+      }
+      return;
+    }
+    if (this.state === 'stumble') {
+      // Wobble in place, arms up, then bolt when the timer runs out.
+      this.group.rotation.z = Math.sin(this.phase * 6) * 0.22;
+      this.phase += dt * 3;
+      if (this.stateTimer <= 0) {
+        this.group.rotation.z = 0;
+        this.state = 'flee';
+        this.stateTimer = 3;
       }
       return;
     }

@@ -85,6 +85,20 @@ export function createCarMesh(modelKey, colorOverride) {
     group.add(tail);
   }
 
+  // Headlight glow: a translucent additive cone ahead of the car, shown
+  // when the headlights are on (the day/night cycle turns them on at
+  // night). Cheap fake — no extra real lights per car.
+  const beamGeo = new THREE.ConeGeometry(1.7, 7.5, 12, 1, true);
+  beamGeo.rotateX(-Math.PI / 2);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xffe9a8, transparent: true, opacity: 0.13,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.set(0, 0.55, -shape.l / 2 - 3.4);
+  beam.visible = false;
+  group.add(beam);
+
   // Damage smoke puff, shown when the car is beaten up.
   const smoke = new THREE.Mesh(
     new THREE.SphereGeometry(0.55, 7, 6),
@@ -94,7 +108,7 @@ export function createCarMesh(modelKey, colorOverride) {
   smoke.visible = false;
   group.add(smoke);
 
-  return { group, wheels, headLamps, smoke, shape };
+  return { group, wheels, headLamps, smoke, shape, beam };
 }
 
 export class Vehicle {
@@ -108,6 +122,7 @@ export class Vehicle {
     this.mesh = built.group;
     this.wheels = built.wheels;
     this.headLamps = built.headLamps;
+    this.beam = built.beam;
     this.smoke = built.smoke;
     this.mesh.position.set(x, 0, z);
     this.heading = heading;
@@ -127,6 +142,7 @@ export class Vehicle {
   setHeadlights(on) {
     this.headlightsOn = on;
     for (const lamp of this.headLamps) lamp.material.color.setHex(on ? 0xfff2b0 : 0x555544);
+    if (this.beam) this.beam.visible = on;
   }
 
   // One physics step. input: {throttle: -1..1, steer: -1..1, handbrake}.
@@ -210,6 +226,10 @@ export class VehicleManager {
       if (d < bestD) { bestD = d; best = car; }
     }
     return best;
+  }
+
+  setAllHeadlights(on) {
+    for (const car of this.cars) if (car.headlightsOn !== on) car.setHeadlights(on);
   }
 
   all() { return this.cars; }

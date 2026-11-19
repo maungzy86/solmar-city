@@ -62,6 +62,16 @@ export function drawMinimap(canvas, state) {
     g.restore();
   }
 
+  // Race marker: cyan ring (start when idle, current checkpoint when racing).
+  if (state.raceMarker) {
+    const [rx, ry] = toPx(state.raceMarker.x, state.raceMarker.z);
+    g.strokeStyle = '#37e0d8';
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(rx, ry, 5, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#37e0d8';
+    g.beginPath(); g.arc(rx, ry, 1.8, 0, Math.PI * 2); g.fill();
+  }
+
   // Police: blue dots with a pale ring.
   for (const cop of state.cops) {
     const [cx, cy] = toPx(cop.x, cop.z);

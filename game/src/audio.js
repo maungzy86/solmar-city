@@ -79,6 +79,19 @@ export class SoundBank {
   }
   gunshot() { this.noise(0.14, 0.4, 3000); this.tone(150, 0.1, 'square', 0.2, 0, 60); }
   punch() { this.noise(0.08, 0.3, 700); }
+  // Combat feedback: a swing that misses, a hit that lands, a heavy shove.
+  whiff() { this.noise(0.07, 0.1, 2400); }
+  hitThump() { this.noise(0.1, 0.38, 620); this.tone(120, 0.12, 'sine', 0.3, 0, 55); }
+  shoveSound() { this.noise(0.16, 0.34, 420); this.tone(85, 0.18, 'sine', 0.3, 0, 45); }
+  // Race feedback: countdown beeps, checkpoint chime, finish fanfare.
+  countBeep(final) { this.tone(final ? 880 : 440, final ? 0.3 : 0.13, 'square', 0.16); }
+  checkpoint() { this.tone(1046, 0.09, 'sine', 0.2); this.tone(1568, 0.13, 'sine', 0.18, 0.07); }
+  raceWin() {
+    this.tone(659, 0.13, 'triangle', 0.22);
+    this.tone(784, 0.13, 'triangle', 0.22, 0.11);
+    this.tone(1046, 0.26, 'triangle', 0.24, 0.22);
+  }
+  raceFail() { this.tone(330, 0.18, 'triangle', 0.2); this.tone(220, 0.3, 'triangle', 0.2, 0.16); }
   crash() { this.noise(0.3, 0.45, 500); this.tone(90, 0.28, 'sawtooth', 0.18, 0, 40); }
   skid() { this.noise(0.16, 0.1, 2600); }
 

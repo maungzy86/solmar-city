@@ -14,6 +14,9 @@ class TrafficCar {
     this.model = MODELS[rng.int(0, MODELS.length - 1)];
     const built = createCarMesh(this.model, PAINTS[rng.int(0, PAINTS.length - 1)]);
     this.mesh = built.group;
+    this.headLamps = built.headLamps;
+    this.beam = built.beam;
+    this.headlightsOn = false;
     scene.add(this.mesh);
     this.lines = lines;
     this.rng = rng;
@@ -47,6 +50,12 @@ class TrafficCar {
   }
 
   get pos() { return this.mesh.position; }
+
+  setHeadlights(on) {
+    this.headlightsOn = on;
+    for (const lamp of this.headLamps) lamp.material.color.setHex(on ? 0xfff2b0 : 0x555544);
+    if (this.beam) this.beam.visible = on;
+  }
 
   heading() {
     if (this.axis === 'v') return this.dir > 0 ? Math.PI : 0;
@@ -124,6 +133,10 @@ export class TrafficManager {
 
   update(dt, playerCar) {
     for (const car of this.cars) car.update(dt, this.cars, playerCar);
+  }
+
+  setAllHeadlights(on) {
+    for (const car of this.cars) if (car.headlightsOn !== on) car.setHeadlights(on);
   }
 
   all() { return this.cars; }

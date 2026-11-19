@@ -18,8 +18,13 @@ export class Hud {
       crosshair: document.getElementById('crosshair'),
       vignette: document.getElementById('vignette'),
       toast: document.getElementById('toast'),
+      race: document.getElementById('race'),
+      hint: document.getElementById('hint'),
+      combo: document.getElementById('combo'),
+      hitmarker: document.getElementById('hitmarker'),
     };
     this.toastTimer = null;
+    this.hitTimer = null;
     this.lastStars = -1;
     this.lastObjective = '';
     this.setWanted(0);
@@ -85,6 +90,49 @@ export class Hud {
 
   setCrosshair(visible) {
     this.el.crosshair.classList.toggle('hidden', !visible);
+  }
+
+  // Street-race readout under the objective banner; null hides it.
+  setRace(text) {
+    if (!this.el.race) return;
+    if (!text) {
+      this.el.race.classList.add('hidden');
+      return;
+    }
+    this.el.race.classList.remove('hidden');
+    if (this.el.race.textContent !== text) this.el.race.textContent = text;
+  }
+
+  // Contextual control hint (e.g. combat keys near a pedestrian).
+  setHint(text) {
+    if (!this.el.hint) return;
+    if (!text) {
+      this.el.hint.classList.add('hidden');
+      return;
+    }
+    this.el.hint.classList.remove('hidden');
+    if (this.el.hint.textContent !== text) this.el.hint.textContent = text;
+  }
+
+  setCombo(n) {
+    if (!this.el.combo) return;
+    if (n < 2) {
+      this.el.combo.classList.add('hidden');
+      return;
+    }
+    this.el.combo.classList.remove('hidden');
+    this.el.combo.textContent = `COMBO x${n}`;
+  }
+
+  flashHitmarker() {
+    if (!this.el.hitmarker) return;
+    this.el.hitmarker.classList.remove('hidden');
+    this.el.hitmarker.style.opacity = '1';
+    if (this.hitTimer) clearTimeout(this.hitTimer);
+    this.hitTimer = setTimeout(() => {
+      this.el.hitmarker.style.opacity = '0';
+      setTimeout(() => this.el.hitmarker.classList.add('hidden'), 160);
+    }, 90);
   }
 
   flashDamage() {

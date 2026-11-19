@@ -1,8 +1,9 @@
-// Carmen Solis's jobs: a three-mission story chain that then loops as
+// Carmen Solis's jobs: a four-mission story chain that then loops as
 // repeatable work. Drive to the gold beacon to start, then follow the
 // objective banner — a fare to the Marina, a hot package across town against
-// the clock, and a checkpoint hustle around the bay. Finishing pays cash,
-// advances the story, and saves the game.
+// the clock, a checkpoint hustle around the bay, and a cool-off run where
+// the delivery only counts once the police heat is gone. Finishing pays
+// cash, advances the story, and saves the game.
 
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
@@ -24,6 +25,7 @@ const COMPLETE_LINES = {
   fare: "Carmen: 'Clean run, Milo. Aurelio's boys were watching the marina again.'",
   package: "Carmen: 'Whatever was in that box, the Syndicate wanted it back. Don't ask.'",
   hustle: "Carmen: 'You just outran half the bay. The Vane crew noticed. So did I.'",
+  cooloff: "Carmen: 'Cold as ice, Milo. That's how you stay free in Solmar Bay.'",
 };
 
 export class MissionManager {
@@ -34,6 +36,7 @@ export class MissionManager {
     this.phase = 'offer'; // offer -> active -> offer ...
     this.step = 0;
     this.timer = 0;
+    this.coolHintAt = -99; // last "too hot" warning time (game.elapsed)
 
     const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffc93f, transparent: true, opacity: 0.34, depthWrite: false });
     this.beacon = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 26, 14, 1, true), beaconMat);
@@ -55,6 +58,7 @@ export class MissionManager {
     const id = this.def().id;
     if (id === 'fare') return POINTS.plaza;
     if (id === 'package') return POINTS.oldTown;
+    if (id === 'cooloff') return POINTS.downtown;
     return POINTS.hustle[0];
   }
 
@@ -63,6 +67,7 @@ export class MissionManager {
     const id = this.def().id;
     if (id === 'fare') return this.step === 0 ? POINTS.plaza : POINTS.marina;
     if (id === 'package') return this.step === 0 ? POINTS.oldTown : POINTS.downtown;
+    if (id === 'cooloff') return this.step === 0 ? POINTS.downtown : POINTS.marina;
     return POINTS.hustle[Math.min(this.step, POINTS.hustle.length - 1)];
   }
 
@@ -86,6 +91,11 @@ export class MissionManager {
       return this.step === 0
         ? { title: `Mission ${n} — ${d.title}`, sub: 'Collect the package in Old Town' }
         : { title: `Mission ${n} — ${d.title}`, sub: `Deliver it Downtown — ${Math.max(0, Math.ceil(this.timer))}s left` };
+    }
+    if (d.id === 'cooloff') {
+      return this.step === 0
+        ? { title: `Mission ${n} — ${d.title}`, sub: 'Pick up the marked envelope Downtown' }
+        : { title: `Mission ${n} — ${d.title}`, sub: `Reach the Marina hideout with NO police heat — ${Math.max(0, Math.ceil(this.timer))}s left` };
     }
     return { title: `Mission ${n} — ${d.title}`, sub: `Checkpoint ${this.step + 1} of ${POINTS.hustle.length}` };
   }
@@ -132,6 +142,7 @@ export class MissionManager {
         if (d.id === 'fare') this.hooks.toast("Carmen: 'Marina, Milo. And keep it smooth — I'm watching the mirrors.'");
         if (d.id === 'package') this.hooks.toast("Carmen: 'Box is in the trunk. Downtown, fast. Do not open it.'");
         if (d.id === 'hustle') this.hooks.toast("Carmen: 'Four corners of the bay. Show me what that right foot does.'");
+        if (d.id === 'cooloff') this.hooks.toast("Carmen: 'Envelope's Downtown. The pickup will be seen — lose the heat, then bring it to the Marina.'");
         this.syncBeacon();
       }
       return;
@@ -162,6 +173,32 @@ export class MissionManager {
           this.syncBeacon();
         } else if (dist < 8) {
           this.complete(game);
+        }
+      }
+    } else if (d.id === 'cooloff') {
+      if (this.step === 0 && dist < 6.5) {
+        this.step = 1;
+        this.timer = 220;
+        game.addHeat(CONFIG.wanted.perStar * 2); // the pickup was seen — two stars
+        this.hooks.toast('The pickup lit you up — two stars. Lose them, then reach the Marina hideout.');
+        this.syncBeacon();
+      } else if (this.step === 1) {
+        this.timer -= dt;
+        if (this.timer <= 0) {
+          this.hooks.toast("Carmen: 'Too slow — the hideout went dark. Start over, Milo.'");
+          this.phase = 'offer';
+          this.step = 0;
+          this.syncBeacon();
+        } else if (dist < 8) {
+          if (game.stars() > 0) {
+            // At the door but still hot: the delivery does not count yet.
+            if (game.elapsed - this.coolHintAt > 4) {
+              this.coolHintAt = game.elapsed;
+              this.hooks.toast('Too hot — lose the police before you roll into the hideout!');
+            }
+          } else {
+            this.complete(game);
+          }
         }
       }
     } else if (d.id === 'hustle') {

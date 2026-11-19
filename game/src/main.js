@@ -15,6 +15,9 @@ import { TrafficManager } from './traffic.js';
 import { PedestrianManager } from './peds.js';
 import { PoliceManager } from './police.js';
 import { MissionManager } from './missions.js';
+import { CombatSystem } from './combat.js';
+import { RaceManager } from './race.js';
+import { DayNight } from './daynight.js';
 import { ChaseCamera } from './camera.js';
 import { Hud } from './hud.js';
 import { drawMinimap } from './minimap.js';
@@ -39,7 +42,9 @@ scene.background = new THREE.Color(CONFIG.colors.sky);
 scene.fog = new THREE.Fog(CONFIG.colors.fog, 150, 640);
 const camera3d = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1600);
 
-// Gradient sky dome, painted on a canvas: warm horizon, blue zenith.
+// Gradient sky dome, painted on a canvas: warm horizon, blue zenith. The
+// material is kept so the day/night cycle can tint it after dark.
+let domeMat = null;
 {
   const c = document.createElement('canvas');
   c.width = 4;
@@ -54,10 +59,8 @@ const camera3d = new THREE.PerspectiveCamera(62, window.innerWidth / window.inne
   g.fillRect(0, 0, 4, 256);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(900, 20, 12),
-    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }),
-  );
+  domeMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(900, 20, 12), domeMat);
   scene.add(dome);
 }
 
@@ -73,6 +76,20 @@ const hud = new Hud();
 const input = new InputTracker(renderer.domElement);
 const chaseCam = new ChaseCamera(camera3d);
 
+// The day/night cycle drives the city lighting built by buildCity.
+const daynight = new DayNight({
+  scene,
+  sun: world.sun,
+  hemi: world.hemi,
+  domeMat,
+  facadeMats: world.facadeMats,
+  lampLights: world.lampLights,
+  lampGlowMat: world.lampGlowMat,
+  seaMat: world.seaMat,
+});
+let wasNight = daynight.isNight();
+let lastClockLabel = '';
+
 // --- game state ---------------------------------------------------------------
 const game = {
   mode: 'title', // title | playing | paused | ended
@@ -83,7 +100,8 @@ const game = {
   elapsed: 0,
   bustFrac: 0,
   inCar: null,
-  stats: { earned: 0, missionsDone: 0, carsDriven: 0 },
+  raceBest: null,
+  stats: { earned: 0, missionsDone: 0, carsDriven: 0, racesDone: 0 },
   shotTick: null,
   player,
   vehicles,
@@ -126,6 +144,7 @@ const game = {
       health: player.health,
       missionIndex: missions.index,
       loop: missions.loop,
+      raceBest: this.raceBest,
       playerPos: { x: player.pos.x, z: player.pos.z },
       stats: this.stats,
     });
@@ -145,9 +164,27 @@ const game = {
   startRun(saved) { startRun(saved); },
 };
 
-const missions = new MissionManager(scene, {
+// While a street race is live it owns the objective banner; mission
+// objective updates are held back until the race ends.
+let raceOwnsBanner = false;
+const race = new RaceManager(scene, {
   toast: (t) => hud.toast(t),
   setObjective: (title, sub) => hud.setObjective(title, sub),
+  setRaceHud: (t) => hud.setRace(t),
+  sound,
+});
+game.race = race;
+
+const combat = new CombatSystem({
+  sound,
+  toast: (t) => hud.toast(t),
+  hud,
+});
+game.combat = combat;
+
+const missions = new MissionManager(scene, {
+  toast: (t) => hud.toast(t),
+  setObjective: (title, sub) => { if (!raceOwnsBanner) hud.setObjective(title, sub); },
   sting: () => sound.missionSting(),
   pickup: () => sound.pickup(),
 });
@@ -164,15 +201,18 @@ function startRun(saved) {
   missions.syncBeacon();
   if (saved && saved.player) player.pos.set(saved.player.x, 0, saved.player.z);
   else player.pos.set(world.spawnPoints.player.x, 0, world.spawnPoints.player.z);
-  if (saved && saved.stats) game.stats = saved.stats;
+  if (saved && saved.stats) game.stats = { racesDone: 0, ...saved.stats };
+  game.raceBest = saved && typeof saved.raceBest === 'number' ? saved.raceBest : null;
   game.heat = 0;
   game.bustFrac = 0;
+  race.abort();
+  combat.reset();
   exitCar(true);
   police.clear();
   hud.setCash(game.cash);
   hud.setHealth(player.health);
   hud.setWanted(0);
-  hud.setClock(CONFIG.dayLabel);
+  hud.setClock(daynight.clockLabel());
   hud.hideScreens();
   hud.showHud();
   game.mode = 'playing';
@@ -184,6 +224,7 @@ function startRun(saved) {
 
 function endRun(kind) {
   game.mode = 'ended';
+  race.abort();
   sound.siren(false);
   sound.engineOff();
   const stars = game.stars();
@@ -325,7 +366,7 @@ function updatePlaying(dt) {
   if (input.consumePressed('Escape') || input.consumePressed('KeyP')) {
     game.mode = 'paused';
     document.getElementById('pause-stats').textContent =
-      `$${Math.floor(game.cash)} in pocket · ${game.stats.missionsDone} jobs done · ${game.stats.carsDriven} cars driven`;
+      `$${Math.floor(game.cash)} in pocket · ${game.stats.missionsDone} jobs done · ${game.stats.carsDriven} cars driven · ${game.stats.racesDone || 0} races finished`;
     hud.showScreen('screen-pause');
     game.saveNow();
     return;
@@ -363,27 +404,21 @@ function updatePlaying(dt) {
   } else {
     player.update(dt, input, chaseCam.yaw, world);
     hud.setSpeed(0, false);
-    if ((input.consumePressed('KeyF') || input.takeClick()) && player.punch()) {
-      sound.punch();
-      const f = player.forward();
-      const reach = { x: player.pos.x + f.x * 1.6, z: player.pos.z + f.z * 1.6 };
-      let hit = false;
-      for (const ped of peds.all()) {
-        if (Math.hypot(ped.pos.x - reach.x, ped.pos.z - reach.z) < CONFIG.punchRange - 0.8) {
-          ped.knockDown();
-          hit = true;
-        }
-      }
-      peds.scareNear(player.pos, 9);
-      if (hit) {
-        const witnessed = peds.all().some((p) => p.state !== 'down' && Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z) < 24)
-          || police.nearestDistance(player.pos) < 55;
-        if (witnessed) game.crime('punchPed');
-        hud.toast(hit ? 'That landed. People are staring.' : '');
-      }
-    }
+    // Combat: F or click punches, G shoves (see combat.js).
+    if (input.consumePressed('KeyF') || input.takeClick()) combat.attack('punch', game, peds, police);
+    if (input.consumePressed('KeyG')) combat.attack('shove', game, peds, police);
   }
+  combat.update(dt);
   hud.setCrosshair(!game.inCar);
+
+  // Contextual hint: combat keys near a pedestrian on foot, the race start
+  // when approaching the cyan beacon in a car.
+  if (game.inCar) {
+    const dStart = Math.hypot(game.inCar.pos.x - CONFIG.race.start.x, game.inCar.pos.z - CONFIG.race.start.z);
+    hud.setHint(!race.active() && dStart < 42 ? 'Street race — drive through the cyan beacon to start' : null);
+  } else {
+    hud.setHint(combat.nearestPedDist(player, peds) < 6 ? 'F / click — punch · G — shove' : null);
+  }
 
   // Traffic, crowds, police, jobs.
   traffic.update(dt, game.inCar);
@@ -402,7 +437,24 @@ function updatePlaying(dt) {
   });
   carContacts(dt);
   police.update(dt, game);
+  raceOwnsBanner = race.update(dt, game);
   missions.update(dt, game);
+
+  // HUD clock follows the day/night cycle (updated when the minute flips).
+  const label = daynight.clockLabel();
+  if (label !== lastClockLabel) {
+    lastClockLabel = label;
+    hud.setClock(label);
+  }
+  // Headlights come on automatically at nightfall, off again at dawn.
+  const night = daynight.isNight();
+  if (night !== wasNight) {
+    wasNight = night;
+    vehicles.setAllHeadlights(night);
+    traffic.setAllHeadlights(night);
+    for (const cop of police.all()) cop.setHeadlights(night);
+    hud.toast(night ? 'Night falls on Solmar Bay — lights on.' : 'Dawn over the bay. Another day, another dollar.');
+  }
 
   // Wanted decay while nothing fresh has happened.
   if (game.elapsed - game.lastCrimeAt > CONFIG.wanted.crimeWindow && game.heat > 0) {
@@ -432,6 +484,9 @@ function updatePlaying(dt) {
   // Siren when the law is close.
   sound.siren(game.stars() > 0 && nearCop < 75);
 
+  // Freshly spawned interceptors also get their lights on at night.
+  if (wasNight) for (const cop of police.all()) if (!cop.headlightsOn) cop.setHeadlights(true);
+
   chaseCam.update(dt, game.targetPos(), game.targetHeading(), speedRatio, !input.dragging);
   drawMinimap(hud.el.minimap, {
     roads: world.roads,
@@ -439,13 +494,14 @@ function updatePlaying(dt) {
     heading: game.targetHeading(),
     cops: police.all().map((c) => c.pos),
     marker: missions.marker(),
+    raceMarker: race.marker(),
   });
 }
 
 // --- boot & loop -----------------------------------------------------------------------
 const shotActive = applyShotMode(params, game);
 window.__game = game;
-hud.setClock(CONFIG.dayLabel);
+hud.setClock(daynight.clockLabel());
 if (!shotActive) hud.showScreen('screen-title');
 
 const clock = new THREE.Clock();
@@ -453,6 +509,7 @@ let framesSinceBoot = 0;
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, clock.getDelta());
+  if (game.mode !== 'paused') daynight.update(dt);
   if (game.mode === 'playing') updatePlaying(dt);
   else if (game.mode === 'paused' && (input.consumePressed('Escape') || input.consumePressed('KeyP'))) {
     game.mode = 'playing';

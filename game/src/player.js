@@ -53,6 +53,8 @@ export class Player {
     this.moving = false;
     this.punchTimer = 0;
     this.punchCooldown = 0;
+    this.shoveTimer = 0;
+    this.shoveCooldown = 0;
   }
 
   get pos() { return this.group.position; }
@@ -100,16 +102,32 @@ export class Player {
       const t = 1 - this.punchTimer / 0.22;
       this.armR.rotation.x = -Math.sin(t * Math.PI) * 1.5;
     }
+    if (this.shoveTimer > 0) {
+      this.shoveTimer -= dt;
+      const t = 1 - this.shoveTimer / 0.28;
+      const push = -Math.sin(t * Math.PI) * 1.35;
+      this.armL.rotation.x = push;
+      this.armR.rotation.x = push;
+    }
     this.punchCooldown -= dt;
+    this.shoveCooldown -= dt;
     this.group.rotation.y = this.heading;
     return walked;
   }
 
   // Start a punch if the cooldown has passed; returns true when it fires.
   punch() {
-    if (this.punchCooldown > 0) return false;
+    if (this.punchCooldown > 0 || this.shoveTimer > 0) return false;
     this.punchCooldown = CONFIG.punchCooldown;
     this.punchTimer = 0.22;
+    return true;
+  }
+
+  // Start a two-handed shove (slower, wider, always knocks down).
+  shove() {
+    if (this.shoveCooldown > 0 || this.punchTimer > 0) return false;
+    this.shoveCooldown = CONFIG.shoveCooldown;
+    this.shoveTimer = 0.28;
     return true;
   }
 

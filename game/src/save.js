@@ -1,6 +1,7 @@
 // Saving: a single localStorage record — cash, health, which mission comes
-// next, where Milo is standing, and lifetime stats. Every function swallows
-// its own errors: a browser that refuses storage must never break the game.
+// next, where Milo is standing, lifetime stats, and the best street-race
+// time. Every function swallows its own errors: a browser that refuses
+// storage must never break the game.
 
 const KEY = 'solmar-city-save-v1';
 
@@ -11,6 +12,7 @@ export function saveGame(state) {
       health: state.health,
       missionIndex: state.missionIndex,
       loop: state.loop,
+      raceBest: (typeof state.raceBest === 'number' && Number.isFinite(state.raceBest)) ? state.raceBest : null,
       player: { x: state.playerPos.x, z: state.playerPos.z },
       stats: state.stats,
       savedAt: Date.now(),
